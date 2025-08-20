@@ -2,6 +2,7 @@ from textwrap import dedent
 from pydantic import BaseModel, Field
 from langchain_openai import AzureChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
+from .resource_fetcher import ResourceFetcherInput, ResourceFetcherOutput, ResourceFetcher
 import os
 
 class SectionRewriteInput(BaseModel):
@@ -33,7 +34,8 @@ class SectionRewriter:
         :param param_obj_input: Input data containing section name and markdown content.
         :return: Output data containing rewritten section name and content.
         """
-        
+        local_obj_inputToResource = ResourceFetcherInput(str_content=param_obj_input.str_markdown)
+        local_str_completeText = self._get_additional_texts(local_obj_inputToResource)
         local_obj_systemPrompt = SystemMessage(content=dedent("""
         You are an expert at transforming hand-written notes into clear, engaging, and high-quality textbook sections. You will receive the name of a section along with hand-written notes for that section (transcribed for clarity).
         Your responsibilities are as follows:
@@ -53,7 +55,7 @@ class SectionRewriter:
         local_obj_humanPrompt = HumanMessage(
             content=dedent(f"""
             Section Name: {param_obj_input.str_nameOftheSection}
-            Markdown Notes: {param_obj_input.str_markdown}
+            Markdown Notes: {local_str_completeText}
             """)
         )
 
@@ -61,3 +63,16 @@ class SectionRewriter:
     
 
         return local_obj_response
+    
+    def _get_additional_texts(self, param_obj_input: ResourceFetcherInput) -> str:
+        """
+        Fetch additional texts based on the provided input.
+        
+        :param param_obj_input: Input data containing content to analyze.
+        :return: Additional texts related to the content.
+        """
+        local_obj_fetcher = ResourceFetcher()
+        local_obj_output = local_obj_fetcher.fetch_resources(param_obj_input)
+        
+        # Combine all resources into a single string
+        return "\n".join([resource.str_contents for resource in local_obj_output.list_resources])
